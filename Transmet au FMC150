@@ -1,0 +1,55 @@
+#include "OneWireHub.h"
+#include "DS1990A.h"
+#include <OneWire.h>
+
+// --- Configuration des broches ---
+#define PIN_RFID_READER 10  // Entrée : Fil blanc du lecteur
+#define PIN_TO_FMC150    2   // Sortie : Fil bleu du FMC150
+
+// --- Objets ---
+OneWire rfidInput(PIN_RFID_READER); 
+auto hub    = OneWireHub(PIN_TO_FMC150);
+auto ds1990 = DS1990A(DS1990A::family_code); // Simule iButton (Family 0x01)
+
+// --- Variables de gestion ---
+unsigned long timerAttach = 0;
+bool isAttached = false;
+const uint8_t emptyID[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+void setup() {
+    Serial.begin(9600);
+    // On ne branche pas l'iButton au démarrage (bus vide)
+    Serial.println("S3 Bridge Initialise - En attente de badge...");
+}
+
+void loop() {
+    // 1. Toujours répondre aux requêtes du FMC150
+    hub.poll();
+
+    // 2. Lecture du badge RFID (Entrée)
+    byte readID[8];
+    if (rfidInput.search(readID) && !isAttached) {
+        
+        // Vérification du CRC pour éviter les erreurs de lecture
+        if (OneWire::crc8(readID, 7) == readID[7]) {
+            Serial.print("Badge lu ! Transmission au FMC150 : ");
+            for(int i=0; i<8; i++) Serial.print(readID[i], HEX);
+            Serial.println();
+
+            // 3. Simulation iButton (Sortie vers FMC150)
+            ds1990.setID(readID);
+            hub.attach(ds1990);
+            
+            timerAttach = millis();
+            isAttached = true;
+        }
+        rfidInput.reset_search();
+    }
+
+    // 4. Logique de détachement (3 secondes)
+    if (isAttached && (millis() - timerAttach >= 3000)) {
+        hub.detach(ds1990); // Simule le retrait physique de la clé
+        isAttached = false;
+        Serial.println("Badge detache - Bus libre.");
+    }
+}
