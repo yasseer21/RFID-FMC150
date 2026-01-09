@@ -1,0 +1,39 @@
+#include <OneWire.h>
+
+// Définition de la broche de données (Fil Blanc)
+OneWire rfidReader(10); 
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("--- Test Lecteur RFID 1-Wire (125 kHz) ---");
+  Serial.println("Approchez un badge du lecteur...");
+}
+
+void loop() {
+  byte addr[8]; // Tableau pour stocker l'ID de 64 bits (8 octets)
+
+  // Cherche un composant sur le bus (Commande Search ROM 0xF0)
+  if (rfidReader.search(addr)) {
+    Serial.print("Badge détecté ! ID : ");
+    
+    // Affichage des 8 octets en Hexadécimal (Format DS1990A)
+    for (int i = 0; i < 8; i++) {
+      if (addr[i] < 16) Serial.print("0");
+      Serial.print(addr[i], HEX);
+      Serial.print(" ");
+    }
+
+    // Vérification de la validité via le CRC8
+    if (OneWire::crc8(addr, 7) == addr[7]) {
+      Serial.println(" -> CRC OK");
+    } else {
+      Serial.println(" -> ERREUR CRC !");
+    }
+
+    // Pause de 2 secondes pour éviter les lectures multiples
+    delay(2000);
+    
+    // Réinitialise la recherche pour le prochain badge
+    rfidReader.reset_search();
+  }
+}
