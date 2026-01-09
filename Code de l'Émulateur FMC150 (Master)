@@ -1,0 +1,41 @@
+#include <OneWire.h>
+
+// On définit la Pin 10 comme l'entrée 1-Wire (équivalent au fil bleu du FMC150)
+// N'oubliez pas la résistance de 4.7k ohms entre Pin 10 et 5V
+OneWire fmc_sim(10); 
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("=== ÉMULATEUR FMC150 (MAÎTRE) ACTIF ===");
+  Serial.println("En attente de détection sur le bus 1-Wire...");
+}
+
+void loop() {
+  byte addr[8];
+
+  // Le simulateur effectue un "Search ROM" (commande 0xF0)
+  if (fmc_sim.search(addr)) {
+    Serial.print("ID iButton capturé : ");
+    
+    // Affichage des 8 octets en Hexadécimal
+    for (int i = 0; i < 8; i++) {
+      if (addr[i] < 16) Serial.print("0");
+      Serial.print(addr[i], HEX);
+      Serial.print(" ");
+    }
+
+    // Vérification de l'intégrité des données reçues
+    if (OneWire::crc8(addr, 7) == addr[7]) {
+      Serial.println(" -> [CRC OK]");
+    } else {
+      Serial.println(" -> [ERREUR CRC]");
+    }
+    
+    // Délai pour ne pas saturer l'affichage si le badge reste présent
+    delay(1000); 
+  } else {
+    // Si aucun composant n'est trouvé, on réinitialise la recherche
+    fmc_sim.reset_search();
+    delay(250);
+  }
+}
